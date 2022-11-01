@@ -1,10 +1,12 @@
-﻿#r "C:\Users\karrot\workspacer\workspacer.Shared.dll"
-#r "C:\Users\karrot\workspacer\plugins\workspacer.Bar\workspacer.Bar.dll"
-#r "C:\Users\karrot\workspacer\plugins\workspacer.ActionMenu\workspacer.ActionMenu.dll"
-#r "C:\Users\karrot\workspacer\plugins\workspacer.FocusIndicator\workspacer.FocusIndicator.dll"
-#r "C:\Users\karrot\workspacer\plugins\workspacer.Gap\workspacer.Gap.dll"
-#r "C:\Users\karrot\workspacer\plugins\workspacer.TitleBar\workspacer.TitleBar.dll"
+﻿#r "C:\Users\p_kar\workspacer\workspacer.Shared.dll"
+#r "C:\Users\p_kar\workspacer\plugins\workspacer.Bar\workspacer.Bar.dll"
+#r "C:\Users\p_kar\workspacer\plugins\workspacer.ActionMenu\workspacer.ActionMenu.dll"
+#r "C:\Users\p_kar\workspacer\plugins\workspacer.FocusIndicator\workspacer.FocusIndicator.dll"
+#r "C:\Users\p_kar\workspacer\plugins\workspacer.Gap\workspacer.Gap.dll"
+#r "C:\Users\p_kar\workspacer\plugins\workspacer.TitleBar\workspacer.TitleBar.dll"
 
+using System.Runtime.InteropServices;
+using System.Diagnostics;
 using System;
 using System.Linq;
 using System.IO;
@@ -37,11 +39,19 @@ Action<IConfigContext> doConfig = (IConfigContext context) =>
     var barHeight = 19;
     var fontName = "Cascadia Code PL";
     var fontStyle = "Regular";
-    var background = new Color(0,0,0,0);
+    var background = new Color(0, 0, 0, 0);
     //var foreground = new Color(255, 0, 162, 255);
     var foreground = new Color(255, 255, 0, 0);
-    WorkspaceWidget ww = new WorkspaceWidget();
-    ww.WorkspaceHasFocusColor = Color.Black;
+
+
+
+    var monitors = context.MonitorContainer.GetAllMonitors();
+    //context.AddBar();  
+    var sticky = new StickyWorkspaceContainer(context, StickyWorkspaceIndexMode.Local);
+    context.WorkspaceContainer = sticky;
+
+    //WorkspaceWidget ww = new WorkspaceWidget();
+    //ww.WorkspaceHasFocusColor = Color.Black;
 
     context.AddBar(new BarPluginConfig()
     {
@@ -49,18 +59,26 @@ Action<IConfigContext> doConfig = (IConfigContext context) =>
         FontSize = fontSize,
         FontName = fontName,
         FontStyle = fontStyle,
-        RightWidgets = () => new IBarWidget[] { new PerformanceMonitor(), new TextWidget("|"), new TimeWidget(1000,"HH:mm:ss dd MMM yy"), new TextWidget("|"), new BatteryWidget("Bold") },
+
+        RightWidgets = () => new IBarWidget[] { new PerformanceMonitor(), new TextWidget("|"), new TimeWidget(1000, "HH:mm:ss dd MMM yy"), new TextWidget("|"), new BatteryWidget("Bold") },
+
         LeftWidgets = () => new IBarWidget[]
         {
-            ww, new TextWidget(": "), new TitleWidget() {
+            new WorkspaceWidget() {
+                WorkspaceHasFocusColor = Color.Black
+            },
+            new TextWidget(": "),
+            new TitleWidget() {
                 IsShortTitle = true
             }
         },
+
         DefaultWidgetBackground = background,
         DefaultWidgetForeground = foreground,
 
         Transparent = true,
-    }) ;
+    });
+
 
     context.AddFocusIndicator(new FocusIndicatorPluginConfig()
     {
@@ -73,7 +91,7 @@ Action<IConfigContext> doConfig = (IConfigContext context) =>
         Foreground = Color.Blue,
     });
 
-    var gap = 40;
+    var gap = 20;
     context.AddGap(
         new GapPluginConfig()
         {
@@ -82,17 +100,20 @@ Action<IConfigContext> doConfig = (IConfigContext context) =>
             Delta = gap / 2,
         }
     );
-    
+
     var titleBarPluginConfig = new TitleBarPluginConfig(new TitleBarStyle(showTitleBar: false, showSizingBorder: false));
     context.AddTitleBar(titleBarPluginConfig);
-   
-    var sticky = new StickyWorkspaceContainer(context, StickyWorkspaceIndexMode.Local);
-    context.WorkspaceContainer = sticky;
-    // create workspaces
-    sticky.CreateWorkspaces("Web", "Code", "Chat", "Media", "Stuff");
-    //sticky.WorkspaceHasFocusColor(Color.White);
 
-  
+    if (monitors.Length > 0)
+    {
+        sticky.CreateWorkspaces(monitors[0], "Code");
+        sticky.CreateWorkspaces(monitors[1], "Web", "Chat", "Media", "Stuff");
+    }
+    else
+    {
+        sticky.CreateWorkspaces("Web", "Code", "Chat", "Media", "Stuff");
+    }
+
 
     context.WindowRouter.AddRoute((window) => window.Title.Contains("Visual Studio") ? context.WorkspaceContainer["Code"] : null);
     context.WindowRouter.AddRoute((window) => window.Title.Contains("Sublime") ? context.WorkspaceContainer["Code"] : null);
@@ -110,6 +131,8 @@ Action<IConfigContext> doConfig = (IConfigContext context) =>
     // filters, workspacer will ignore windows with this names (I recommend ignoring fullscreen applications)
     context.WindowRouter.AddFilter((window) => !window.Title.Contains("Netflix"));
     context.WindowRouter.AddFilter((window) => !window.Title.Contains("Popcorn Time"));
+    context.WindowRouter.AddFilter((window) => !window.Title.Contains("Picture in Picture"));
+
 
     // if true, windows have to be manually raised when switching layouts
     context.CanMinimizeWindows = false;
